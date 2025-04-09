@@ -1,109 +1,170 @@
 <!DOCTYPE html>
 <html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pianificatore Attacchi Tribals</title>
-    <script src="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.3/dist/tailwind.min.css"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-        }
-    </style>
-</head>
-<body>
-    <div class="container mx-auto p-4">
-        <h1 class="text-xl font-bold mb-4">Pianificatore Attacchi Tribals</h1>
-        
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Planner Attacchi Tribal Wars</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 text-gray-800 p-6">
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-2xl shadow-lg">
+      <h1 class="text-3xl font-bold mb-6 text-center">Pianificatore Attacchi Tribal Wars</h1>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-            <label for="villaggiPartenza" class="block">Villaggi di Partenza (separati da |)</label>
-            <input type="text" id="villaggiPartenza" class="border p-2 w-full mb-4" placeholder="es. 1|2|3">
-            <button onclick="countVillages('partenza')" class="border p-2">Conta Villaggi di Partenza</button>
-        </div>
-        
-        <div>
-            <label for="villaggiArrivo" class="block">Villaggi di Arrivo (separati da |)</label>
-            <input type="text" id="villaggiArrivo" class="border p-2 w-full mb-4" placeholder="es. 4|5|6">
-            <button onclick="countVillages('arrivo')" class="border p-2">Conta Villaggi di Arrivo</button>
+          <label class="block font-semibold mb-2">Villaggi Obiettivo (uno per riga)</label>
+          <textarea id="targetVillages" class="w-full p-2 border rounded h-40" placeholder="123|456\n234|567"></textarea>
+          <button id="countTargetVillages" class="mt-2 bg-blue-500 text-white p-2 rounded">Conta Villaggi Obiettivo</button>
+          <p id="targetVillagesCount" class="mt-2 text-sm text-gray-600">Numero di villaggi obiettivo: 0</p>
         </div>
 
         <div>
-            <label for="ascia">Numero di Attacchi Ascia:</label>
-            <input type="number" id="ascia" class="border p-2 mb-4" value="0">
+          <label class="block font-semibold mb-2">Villaggi di Partenza (uno per riga)</label>
+          <textarea id="startVillages" class="w-full p-2 border rounded h-40" placeholder="111|222\n333|444"></textarea>
+          <button id="countStartVillages" class="mt-2 bg-blue-500 text-white p-2 rounded">Conta Villaggi Partenza</button>
+          <p id="startVillagesCount" class="mt-2 text-sm text-gray-600">Numero di villaggi di partenza: 0</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <div>
+          <label class="block font-semibold mb-2">Data dell'attacco</label>
+          <input id="attackDate" type="date" class="p-2 border rounded w-full" />
         </div>
 
         <div>
-            <label for="ariete">Numero di Attacchi Ariete:</label>
-            <input type="number" id="ariete" class="border p-2 mb-4" value="0">
+          <label class="block font-semibold mb-2">Ora dell'attacco (formato HH:MM)</label>
+          <input id="attackTime" type="time" class="p-2 border rounded w-full" />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <div>
+          <label class="block font-semibold mb-2">Numero attacchi Arieti per obiettivo</label>
+          <input id="numArieteAttacks" type="number" min="0" value="1" class="p-2 border rounded w-full" />
         </div>
 
         <div>
-            <label for="nobile">Numero di Attacchi Nobile:</label>
-            <input type="number" id="nobile" class="border p-2 mb-4" value="0">
+          <label class="block font-semibold mb-2">Numero attacchi Nobili per obiettivo</label>
+          <input id="numNobleAttacks" type="number" min="0" value="1" class="p-2 border rounded w-full" />
         </div>
+      </div>
 
-        <button onclick="calcolaAttacchi()" class="bg-blue-500 text-white p-2">Calcola Attacchi</button>
+      <div class="mt-6">
+        <h2 class="font-bold mb-2">Seleziona tipo di truppe per ciascun villaggio di partenza</h2>
+        <div id="truppaSelections" class="space-y-2"></div>
+      </div>
 
-        <div id="risultati" class="mt-4"></div>
+      <button onclick="calcolaAttacchi()" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full">Calcola Attacchi</button>
+
+      <div id="results" class="mt-8"></div>
     </div>
 
     <script>
-        function countVillages(type) {
-            let inputId = type === 'partenza' ? 'villaggiPartenza' : 'villaggiArrivo';
-            let villages = document.getElementById(inputId).value.split('|').length;
-            alert('Villaggi ' + (type === 'partenza' ? 'di partenza' : 'di arrivo') + ': ' + villages);
+      function parseCoordinate(line) {
+        const match = line.match(/(\d{1,3})\D+(\d{1,3})/);
+        return match ? `${match[1]}|${match[2]}` : null;
+      }
+
+      function distanza(coord1, coord2) {
+        const [x1, y1] = coord1.split('|').map(Number);
+        const [x2, y2] = coord2.split('|').map(Number);
+        return Math.hypot(x2 - x1, y2 - y1);
+      }
+
+      function aggiornaScelteTruppe() {
+        const startLines = document.getElementById('startVillages').value.trim().split('\n');
+        const container = document.getElementById('truppaSelections');
+        container.innerHTML = '';
+
+        startLines.forEach((line, idx) => {
+          const coord = parseCoordinate(line);
+          if (coord) {
+            container.innerHTML += `
+              <div class="flex items-center gap-4">
+                <span class="w-28 font-mono">${coord}</span>
+                <label><input type="checkbox" class="mr-1" id="axe_${idx}" /> Ariete</label>
+                <label><input type="checkbox" class="mr-1" id="noble_${idx}" /> Nobile</label>
+              </div>`;
+          }
+        });
+      }
+
+      document.getElementById('startVillages').addEventListener('input', aggiornaScelteTruppe);
+
+      // Funzione per contare i villaggi
+      function contaVillaggi(inputId, resultId) {
+        const inputLines = document.getElementById(inputId).value.trim().split('\n');
+        const validVillages = inputLines.filter(line => parseCoordinate(line)).length;
+        document.getElementById(resultId).textContent = `Numero di villaggi: ${validVillages}`;
+      }
+
+      // Eventi per i bottoni
+      document.getElementById('countTargetVillages').addEventListener('click', () => {
+        contaVillaggi('targetVillages', 'targetVillagesCount');
+      });
+
+      document.getElementById('countStartVillages').addEventListener('click', () => {
+        contaVillaggi('startVillages', 'startVillagesCount');
+      });
+
+      function calcolaAttacchi() {
+        const targetLines = document.getElementById('targetVillages').value.trim().split('\n');
+        const startLines = document.getElementById('startVillages').value.trim().split('\n');
+        const attackTime = document.getElementById('attackTime').value;
+        const attackDate = document.getElementById('attackDate').value;
+        const numAriete = Number(document.getElementById('numArieteAttacks').value);
+        const numNoble = Number(document.getElementById('numNobleAttacks').value);
+
+        // Verifica che ci siano abbastanza villaggi per i tipi di attacco
+        const villaggiPartenza = startLines.filter(line => parseCoordinate(line)).length;
+        const totaleArieti = numAriete * targetLines.length;
+        const totaleNobili = numNoble * targetLines.length;
+
+        if (totaleArieti > villaggiPartenza) {
+          alert('Errore: Non ci sono abbastanza villaggi di partenza per coprire tutti gli attacchi Arieti!');
+          return;
+        }
+        if (totaleNobili > villaggiPartenza) {
+          alert('Errore: Non ci sono abbastanza villaggi di partenza per coprire tutti gli attacchi Nobili!');
+          return;
         }
 
-        function calcolaAttacchi() {
-            let villaggiPartenza = document.getElementById('villaggiPartenza').value.split('|');
-            let villaggiArrivo = document.getElementById('villaggiArrivo').value.split('|');
-            let attacchiAscia = parseInt(document.getElementById('ascia').value);
-            let attacchiAriete = parseInt(document.getElementById('ariete').value);
-            let attacchiNobile = parseInt(document.getElementById('nobile').value);
+        let resultsHTML = '';
+        const targets = targetLines.map(parseCoordinate).filter(Boolean);
+        const starts = startLines.map(parseCoordinate).filter(Boolean);
 
-            if (villaggiPartenza.length === 0 || villaggiArrivo.length === 0) {
-                alert('Inserisci almeno un villaggio di partenza e uno di arrivo!');
-                return;
+        targets.forEach((target) => {
+          resultsHTML += `<h2 class='font-bold mt-6 text-lg'>Obiettivo: ${target}</h2>`;
+          let nobleSent = 0;
+
+          starts.forEach((start, si) => {
+            const axeChecked = document.getElementById(`axe_${si}`)?.checked;
+            const nobleChecked = document.getElementById(`noble_${si}`)?.checked;
+            const distance = distanza(start, target);
+            const arrivo = new Date(`${attackDate}T${attackTime}`);
+
+            if (axeChecked) {
+              const speed = 30;
+              const travel = distance * speed;
+              for (let i = 0; i < numAriete; i++) {
+                const partenza = new Date(arrivo.getTime() - travel * 60000);
+                resultsHTML += `<p>${start} => ${target} | Unità: Ariete | Partenza: ${partenza.toLocaleString()}</p>`;
+              }
             }
 
-            if (villaggiPartenza.length < attacchiAscia + attacchiAriete) {
-                alert('Non ci sono abbastanza villaggi di partenza per inviare tutti gli attacchi!');
-                return;
+            if (nobleChecked && nobleSent < numNoble) {
+              const speed = 35;
+              const travel = distance * speed;
+              const partenza = new Date(arrivo.getTime() - travel * 60000);
+              resultsHTML += `<p>${start} => ${target} | Unità: Nobile | Partenza: ${partenza.toLocaleString()}</p>`;
+              nobleSent++;
             }
+          });
+        });
 
-            if (villaggiArrivo.length < attacchiAscia + attacchiAriete + attacchiNobile) {
-                alert('Non ci sono abbastanza villaggi di arrivo per coprire tutti gli attacchi!');
-                return;
-            }
-
-            let risultati = '';
-            let i = 0;
-
-            // Assegnamento degli attacchi
-            for (let j = 0; j < attacchiAscia; j++) {
-                let villaggioPartenza = villaggiPartenza[i];
-                let villaggioArrivo = villaggiArrivo[j];
-                risultati += `Attacco Ascia: ${villaggioPartenza} -> ${villaggioArrivo}<br>`;
-                i++;
-            }
-
-            for (let j = 0; j < attacchiAriete; j++) {
-                let villaggioPartenza = villaggiPartenza[i];
-                let villaggioArrivo = villaggiArrivo[j];
-                risultati += `Attacco Ariete: ${villaggioPartenza} -> ${villaggioArrivo}<br>`;
-                i++;
-            }
-
-            // Assegnamento dei nobili
-            for (let j = 0; j < attacchiNobile; j++) {
-                let villaggioPartenza = villaggiPartenza[i];
-                let villaggioArrivo = villaggiArrivo[j];
-                risultati += `Attacco Nobile: ${villaggioPartenza} -> ${villaggioArrivo}<br>`;
-                i++;
-            }
-
-            document.getElementById('risultati').innerHTML = risultati;
-        }
+        document.getElementById('results').innerHTML = resultsHTML;
+      }
     </script>
-</body>
+  </body>
 </html>
